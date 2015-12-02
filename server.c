@@ -37,14 +37,22 @@
 #include <sys/socket.h>
 #include <resolv.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
+#include <netdb.h>
 
+#define PORTNUM 9999
 #define	MY_PORT		9999
+#define MAXHOSTNAME 1000
 
 void PERROR(char* msg);
 #define PERROR(msg)	{ perror(msg); abort(); }
 #define MAXBUF	1024
 char buffer[MAXBUF];
-char *Host="127.0.0.1:9990";
+char *Host="127.0.0.1:9999";
+void do_something(int);
+int establish(unsigned short portnum);
 
 #define MAXPATH	150
 /*---------------------------------------------------------------------*/
@@ -155,39 +163,97 @@ void DirListing(FILE* FP, char* Path)
 /*---------------------------------------------------------------------*/
 /*--- main - set up client and accept connections.                  ---*/
 /*---------------------------------------------------------------------*/
-int main(void)
-{	struct sockaddr_in addr;
-	int sd, addrlen = sizeof(addr);
+ 
 
-	if ( (sd = socket(PF_INET, SOCK_STREAM, 0)) < 0 )
-		PERROR("Socket");
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(MY_PORT);
-	addr.sin_addr.s_addr = INADDR_ANY;
-	if ( bind(sd, (struct sockaddr*)&addr, addrlen) < 0 )
-		PERROR("Bind");
-	if ( listen(sd, 20) < 0 )
-		PERROR("Listen");
-	while (1)
-	{	int len;
-		int client = accept(sd, (struct sockaddr*)&addr, &addrlen);
-		printf("Connected: %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-
-		if ( (len = recv(client, buffer, MAXBUF, 0)) > 0 )
-		{
-			FILE* ClientFP = fdopen(client, "w");
-			if ( ClientFP == NULL )
-				perror("fpopen");
-			else
-			{	char Req[MAXPATH];
-				sscanf(buffer, "GET %s HTTP", Req);
-				printf("Request: \"%s\"\n", Req);
-				DirListing(ClientFP, Req);
-				fclose(ClientFP);
-			}
+void  do_something(int client){
+	int len;
+	printf("Connected:");
+	if ( (len = recv(client, buffer, MAXBUF, 0)) > 0 )
+	{
+		FILE* ClientFP = fdopen(client, "w");
+		if ( ClientFP == NULL )
+			perror("fpopen");
+		else
+		{	char Req[MAXPATH];
+			sscanf(buffer, "GET %s HTTP", Req);
+			printf("Request: \"%s\"\n", Req);
+			fprintf(ClientFP,"HTTP/1.0 200 OK\n");
+			fprintf(ClientFP,"Content-type: text/html\n");
+			fprintf(ClientFP,"\n");
+			DirListing(ClientFP, Req);
+			fclose(ClientFP);
 		}
-		close(client);
 	}
-	return 0;
 }
 
+/* code to establish a socket */
+int establish(unsigned short portnum)
+{
+        char myname[MAXHOSTNAME+1];
+        int s;
+        struct sockaddr_in sa;
+        struct hostent *hp;
+
+        memset(&sa, 0, sizeof(struct sockaddr));                                                        /* clear our address */
+        gethostname(myname, MAXHOSTNAME);                                                                       /* who are we? */
+        hp= gethostbyname(myname);                                                                                      /* get our address info */
+        if (hp == NULL)return(-1);                                                                                      /* we don't exist !? */
+
+        sa.sin_family= hp->h_addrtype;                                                                          /* this is our host address */
+        sa.sin_addr.s_addr = INADDR_ANY;                                                                        /* this is our default IP address */
+        sa.sin_port= htons(portnum);                                                                            /* this is our port number */
+        if ( ( s = socket(AF_INET, SOCK_STREAM, 0)) < 0) return(-1);                       /* create socket */
+
+        if ( bind( s, (struct sockaddr *) & sa , sizeof(sa) )  < 0)
+        {
+                close(s);
+                return(-1);                                                                                                             /* bind address to socket */
+        }
+        listen(s, 3);                                                                                                           /* max # of queued connects */
+        return(s);
+
+}
+
+
+main()
+{
+        int s, t;
+        if ((s = establish(PORTNUM)) < 0)
+        {                                                                                                                                       /* plug in the phone */
+                perror("establish");
+                exit(1);
+        }
+                                                                                                                                                /* how a concurrent server looks like */
+        for (;;)
+        {                                                                                                                                       /* loop for phone calls */
+                if ((t= get_connection(s)) < 0)
+                {                                                                                                                               /* get a connection */
+                        perror("accept");                                                                                       /* bad */
+                        exit(1);
+                }
+                switch( fork() )
+                {                                                                                                                               /* try to handle connection */
+                        case -1 :                                                                                                       /* bad news. scream and die */
+                                perror("fork");
+                                close(s);
+                                close(t);
+                                exit(1);
+                        case 0 :                                                                                                        /* we're the child, do something */
+                                close(s);
+                                do_something(t);
+                                close(t);
+                                exit(0);
+                        default :                                                                                                       /* we're the parent so look for */
+                                close(t);                                                                                               /* another connection */
+                                continue;
+                }
+        }
+}
+
+
+/* wait for a connection to occur on a socket created with establish() */
+int get_connection(int s) {
+int t; /* socket of connection */
+if ((t = accept(s,NULL,NULL)) < 0) /* accept connection if there is one */
+ return(-1);
+return(t); }
