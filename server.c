@@ -167,6 +167,8 @@ void DirListing(FILE* FP, char* Path)
 
 void  do_something(int client){
 	int len;
+	struct stat statbuf;
+
 	printf("Connected:");
 	if ( (len = recv(client, buffer, MAXBUF, 0)) > 0 )
 	{
@@ -180,7 +182,16 @@ void  do_something(int client){
 			fprintf(ClientFP,"HTTP/1.0 200 OK\n");
 			fprintf(ClientFP,"Content-type: text/html\n");
 			fprintf(ClientFP,"\n");
-			DirListing(ClientFP, Req);
+
+			if (lstat(Req, &statbuf) < 0) {
+				printf("Stat error.\n");
+				return;
+			}
+
+			if (S_ISDIR(statbuf.st_mode)) {
+				DirListing(ClientFP, Req);
+			}
+
 			fclose(ClientFP);
 		}
 	}
