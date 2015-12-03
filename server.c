@@ -53,8 +53,15 @@ char buffer[MAXBUF];
 char *Host="127.0.0.1:9999";
 void do_something(int);
 int establish(unsigned short portnum);
+int checkExtension(char *fileName);
 
 #define MAXPATH	150
+
+#define FILE_HTML    1    /*HTML file*/
+#define FILE_IMG     2    /*.gif, .jpg, or .jpeg file*/
+#define FILE_CGI     3    /*.cgi script*/
+#define FILE_NO      4    /*Not correct file*/
+
 /*---------------------------------------------------------------------*/
 /*--- strtrim - trim the spaces off the front and back of a string. ---*/
 /*---------------------------------------------------------------------*/
@@ -163,11 +170,12 @@ void DirListing(FILE* FP, char* Path)
 /*---------------------------------------------------------------------*/
 /*--- main - set up client and accept connections.                  ---*/
 /*---------------------------------------------------------------------*/
- 
+
 
 void  do_something(int client){
 	int len;
 	struct stat statbuf;
+	int fileType;
 
 	printf("Connected:");
 	if ( (len = recv(client, buffer, MAXBUF, 0)) > 0 )
@@ -191,10 +199,51 @@ void  do_something(int client){
 			if (S_ISDIR(statbuf.st_mode)) {
 				DirListing(ClientFP, Req);
 			}
+			fileType = checkExtension(Req);
 
+			if (fileType == 1) {
+				printf("Is html file.\n");
+			}
+			else if (fileType == 2) {
+				printf("Is jpeg or gif file.\n");
+			}
+			else if (fileType == 3) {
+				printf("Is cgi file.\n");
+			}
+			else if (fileType == 4) {
+				printf("Incorrect file.\n");
+			}
 			fclose(ClientFP);
 		}
 	}
+}
+
+/* Check extension of file */
+int checkExtension(char *fileName) {
+	char *extension1;
+	char *extension2;
+	int type = NULL;
+
+	strncpy(extension1, fileName + (strlen(fileName) - 4), 4);
+	strncpy(extension2, fileName + (strlen(fileName) - 5), 5);
+
+	if (strcmp(extension2, ".html") == 0) {
+		type = FILE_HTML;
+	}
+
+	else if (strcmp(extension1, ".gif") == 0 || strcmp(extension1, ".jpg") == 0 || strcmp(extension2, ".jpeg") == 0) {
+		type = FILE_IMG;
+	}
+
+	else if (strcmp(extension1, ".cgi") == 0) {
+		type = FILE_CGI;
+	}
+
+	else {
+		type = FILE_NO;
+	}
+
+	return type;
 }
 
 /* code to establish a socket */
