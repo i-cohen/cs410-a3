@@ -1,0 +1,2 @@
+gcc -o server server.c
+wget 127.0.0.1:9999/home/ugrad/icohen93/cs410/cs410-a3/sample-1.jpg 

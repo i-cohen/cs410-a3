@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <stdlib.h>
 
 #define PORTNUM 9999
 #define	MY_PORT		9999
@@ -54,7 +55,7 @@ char *Host="127.0.0.1:9999";
 void do_something(int);
 int establish(unsigned short portnum);
 int checkExtension(char *fileName);
-
+void sendFileOverSocket(int client, char* filename);
 #define MAXPATH	150
 
 #define FILE_HTML    1    /*HTML file*/
@@ -177,7 +178,7 @@ void  do_something(int client){
 	struct stat statbuf;
 	int fileType;
 
-	printf("Connected:");
+	printf("Connected\n");
 	if ( (len = recv(client, buffer, MAXBUF, 0)) > 0 )
 	{
 		FILE* ClientFP = fdopen(client, "w");
@@ -187,60 +188,116 @@ void  do_something(int client){
 		{	char Req[MAXPATH];
 			sscanf(buffer, "GET %s HTTP", Req);
 			printf("Request: \"%s\"\n", Req);
-			fprintf(ClientFP,"HTTP/1.0 200 OK\n");
-			fprintf(ClientFP,"Content-type: text/html\n");
-			fprintf(ClientFP,"\n");
 
 			if (lstat(Req, &statbuf) < 0) {
+				fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
 				printf("Stat error.\n");
-				return;
 			}
 
-			if (S_ISDIR(statbuf.st_mode)) {
+			else if (S_ISDIR(statbuf.st_mode)) {
+				printf("Is Dir\n");
+				fprintf(ClientFP,"HTTP/1.0 200 OK\n");
+				fprintf(ClientFP,"Content-type: text/html\n");
+				fprintf(ClientFP,"\n");
+				
 				DirListing(ClientFP, Req);
 			}
+			else{
+			printf("checking file type\n");
 			fileType = checkExtension(Req);
+			printf("file type is %d\n", fileType);
 
 			if (fileType == 1) {
 				printf("Is html file.\n");
 			}
 			else if (fileType == 2) {
 				printf("Is jpeg or gif file.\n");
+				fprintf(ClientFP,"HTTP/1.0 200 OK\n");
+                                fprintf(ClientFP,"Content-type: image/jpeg\n");
+                                fprintf(ClientFP,"\n");
+				sendFileOverSocket(client,Req);
+				
 			}
 			else if (fileType == 3) {
 				printf("Is cgi file.\n");
 			}
-			else if (fileType == 4) {
+			else {
 				printf("Incorrect file.\n");
+				fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
+
+			}
 			}
 			fclose(ClientFP);
 		}
 	}
 }
 
+void sendFileOverSocket(int client, char* filename){
+    off_t offset = 0;          /* file offset */
+    int rc;                    /* holds return code of system calls */
+    int fd;                    /* file descriptor for file to send */
+    struct stat stat_buf;      /* argument to fstat */
+    printf("received request to send file %s\n", filename);
+
+    /* open the file to be sent */
+    fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+      fprintf(stderr, "unable to open '%s': %s\n", filename, strerror(errno));
+      exit(1);
+    }
+
+    /* get the size of the file to be sent */
+    fstat(fd, &stat_buf);
+
+    /* copy file using sendfile */
+    offset = 0;
+    rc = sendfile (client, fd, &offset, stat_buf.st_size);
+    if (rc == -1) {
+      fprintf(stderr, "error from sendfile: %s\n", strerror(errno));
+      exit(1);
+    }
+    if (rc != stat_buf.st_size) {
+      fprintf(stderr, "incomplete transfer from sendfile: %d of %d bytes\n",
+              rc,
+              (int)stat_buf.st_size);
+      exit(1);
+    }
+
+    /* close descriptor for file that was sent */
+    close(fd);
+
+
+
+}
+
 /* Check extension of file */
 int checkExtension(char *fileName) {
-	char *extension1;
-	char *extension2;
+	char extension1[40];
+	char extension2[40];
 	int type = NULL;
+	printf("extension1 is :\n");
 
 	strncpy(extension1, fileName + (strlen(fileName) - 4), 4);
 	strncpy(extension2, fileName + (strlen(fileName) - 5), 5);
+	extension1[4] ='\0';
+	extension2[5] ='\0';
 
+	printf("extension1 is :%s\n", extension1);
+	printf("extension2 is :%s\n", extension2);
 	if (strcmp(extension2, ".html") == 0) {
-		type = FILE_HTML;
+		type = 1;
 	}
 
 	else if (strcmp(extension1, ".gif") == 0 || strcmp(extension1, ".jpg") == 0 || strcmp(extension2, ".jpeg") == 0) {
-		type = FILE_IMG;
+		type = 2;
 	}
 
 	else if (strcmp(extension1, ".cgi") == 0) {
-		type = FILE_CGI;
+		type = 3;
 	}
 
 	else {
-		type = FILE_NO;
+		type = -1;
 	}
 
 	return type;
