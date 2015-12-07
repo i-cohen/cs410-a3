@@ -59,18 +59,20 @@ void sendFileOverSocket(int client, char* filename);
 #define MAXPATH	150
 
 #define FILE_HTML    1    /*HTML file*/
-#define FILE_IMG     2    /*.gif, .jpg, or .jpeg file*/
-#define FILE_CGI     3    /*.cgi script*/
-#define FILE_NO      4    /*Not correct file*/
+#define FILE_JPG     2    /*.jpg, or .jpeg file*/
+#define FILE_GIF     3    /*.gif file*/
+#define FILE_CGI     4    /*.cgi script*/
 
 /*---------------------------------------------------------------------*/
 /*--- strtrim - trim the spaces off the front and back of a string. ---*/
 /*---------------------------------------------------------------------*/
-char* strtrim(char *str)
-{	int tail=strlen(str);
+char* strtrim(char *str) {
+	int tail=strlen(str);
+
 	while ( str[tail] <= ' '  &&  tail > 0 )
 		tail--;
 	str[tail+1] = 0;
+
 	while ( *str <= ' '  &&  *str != 0 )
 		str++;
 	return str;
@@ -79,8 +81,8 @@ char* strtrim(char *str)
 /*---------------------------------------------------------------------*/
 /*--- panic - report error and die.                                 ---*/
 /*---------------------------------------------------------------------*/
-void panic(char* msg, ...)
-{	va_list ap;
+void panic(char* msg, ...) {
+	va_list ap;
 
 	va_start(ap, msg);
 	vprintf(msg, ap);
@@ -91,8 +93,8 @@ void panic(char* msg, ...)
 /*---------------------------------------------------------------------*/
 /*--- dir_up - find the parent directory in a path.                 ---*/
 /*---------------------------------------------------------------------*/
-char* dir_up(char* dirpath)
-{   static char Path[MAXPATH];
+char* dir_up(char* dirpath) {
+	static char Path[MAXPATH];
 	int len;
 
 	strcpy(Path, dirpath);
@@ -110,8 +112,8 @@ char* dir_up(char* dirpath)
 /*---------------------------------------------------------------------*/
 /*--- DirListing - read the directory and output an HTML table      ---*/
 /*---------------------------------------------------------------------*/
-void DirListing(FILE* FP, char* Path)
-{	struct dirent *dirent;
+void DirListing(FILE* FP, char* Path) {
+	struct dirent *dirent;
 	struct stat info;
 	char Filename[MAXPATH];
 	DIR* dir = opendir(Path);
@@ -173,19 +175,20 @@ void DirListing(FILE* FP, char* Path)
 /*---------------------------------------------------------------------*/
 
 
-void  do_something(int client){
+void  do_something(int client) {
 	int len;
 	struct stat statbuf;
 	int fileType;
 
 	printf("Connected\n");
-	if ( (len = recv(client, buffer, MAXBUF, 0)) > 0 )
-	{
+	if ((len = recv(client, buffer, MAXBUF, 0)) > 0 ) {
 		FILE* ClientFP = fdopen(client, "w");
+
 		if ( ClientFP == NULL )
 			perror("fpopen");
-		else
-		{	char Req[MAXPATH];
+
+		else {
+			char Req[MAXPATH];
 			sscanf(buffer, "GET %s HTTP", Req);
 			printf("Request: \"%s\"\n", Req);
 
@@ -199,33 +202,40 @@ void  do_something(int client){
 				fprintf(ClientFP,"HTTP/1.0 200 OK\n");
 				fprintf(ClientFP,"Content-type: text/html\n");
 				fprintf(ClientFP,"\n");
-				
+
 				DirListing(ClientFP, Req);
 			}
-			else{
-			printf("checking file type\n");
-			fileType = checkExtension(Req);
-			printf("file type is %d\n", fileType);
 
-			if (fileType == 1) {
-				printf("Is html file.\n");
-			}
-			else if (fileType == 2) {
-				printf("Is jpeg or gif file.\n");
-				fprintf(ClientFP,"HTTP/1.0 200 OK\n");
-                                fprintf(ClientFP,"Content-type: image/jpeg\n");
-                                fprintf(ClientFP,"\n");
-				sendFileOverSocket(client,Req);
-				
-			}
-			else if (fileType == 3) {
-				printf("Is cgi file.\n");
-			}
 			else {
-				printf("Incorrect file.\n");
-				fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
+				printf("checking file type\n");
+				fileType = checkExtension(Req);
+				printf("file type is %d\n", fileType);
 
-			}
+				if (fileType == 1) {
+					printf("Is html file.\n");
+				}
+
+				else if (fileType == 2) {
+					printf("Is jpeg file.\n");
+					fprintf(ClientFP,"HTTP/1.0 200 OK\n");
+                                	fprintf(ClientFP,"Content-type: image/jpeg\n");
+                                	fprintf(ClientFP,"\n");
+					sendFileOverSocket(client,Req);
+				}
+
+				else if (fileType == 3) {
+					printf("Is gif file.\n");
+				}
+
+				else if (fileType == 4) {
+					printf("is cgi file.\n");
+				}
+
+				else {
+					printf("Incorrect file.\n");
+					fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
+
+				}
 			}
 			fclose(ClientFP);
 		}
@@ -288,12 +298,16 @@ int checkExtension(char *fileName) {
 		type = 1;
 	}
 
-	else if (strcmp(extension1, ".gif") == 0 || strcmp(extension1, ".jpg") == 0 || strcmp(extension2, ".jpeg") == 0) {
+	else if (strcmp(extension1, ".jpg") == 0 || strcmp(extension2, ".jpeg") == 0) {
 		type = 2;
 	}
 
-	else if (strcmp(extension1, ".cgi") == 0) {
+	else if (strcmp(extension1, ".gif") == 0) {
 		type = 3;
+  	}
+
+	else if (strcmp(extension1, ".cgi") == 0) {
+		type = 4;
 	}
 
 	else {
@@ -311,22 +325,22 @@ int establish(unsigned short portnum)
         struct sockaddr_in sa;
         struct hostent *hp;
 
-        memset(&sa, 0, sizeof(struct sockaddr));                                                        /* clear our address */
-        gethostname(myname, MAXHOSTNAME);                                                                       /* who are we? */
-        hp= gethostbyname(myname);                                                                                      /* get our address info */
-        if (hp == NULL)return(-1);                                                                                      /* we don't exist !? */
+        memset(&sa, 0, sizeof(struct sockaddr));      /* clear our address */
+        gethostname(myname, MAXHOSTNAME);             /* who are we? */
+        hp= gethostbyname(myname);                    /* get our address info */
+        if (hp == NULL)return(-1);                    /* we don't exist !? */
 
-        sa.sin_family= hp->h_addrtype;                                                                          /* this is our host address */
-        sa.sin_addr.s_addr = INADDR_ANY;                                                                        /* this is our default IP address */
-        sa.sin_port= htons(portnum);                                                                            /* this is our port number */
-        if ( ( s = socket(AF_INET, SOCK_STREAM, 0)) < 0) return(-1);                       /* create socket */
+        sa.sin_family= hp->h_addrtype;                /* this is our host address */
+        sa.sin_addr.s_addr = INADDR_ANY;              /* this is our default IP address */
+        sa.sin_port= htons(portnum);                  /* this is our port number */
+        if ( ( s = socket(AF_INET, SOCK_STREAM, 0)) < 0) return(-1);  /* create socket */
 
         if ( bind( s, (struct sockaddr *) & sa , sizeof(sa) )  < 0)
         {
                 close(s);
-                return(-1);                                                                                                             /* bind address to socket */
+                return(-1);                           /* bind address to socket */
         }
-        listen(s, 3);                                                                                                           /* max # of queued connects */
+        listen(s, 3);                                 /* max # of queued connects */
         return(s);
 
 }
@@ -336,32 +350,32 @@ main()
 {
         int s, t;
         if ((s = establish(PORTNUM)) < 0)
-        {                                                                                                                                       /* plug in the phone */
+        {                                      /* plug in the phone */
                 perror("establish");
                 exit(1);
         }
-                                                                                                                                                /* how a concurrent server looks like */
+                                              /* how a concurrent server looks like */
         for (;;)
-        {                                                                                                                                       /* loop for phone calls */
+        {                                     /* loop for phone calls */
                 if ((t= get_connection(s)) < 0)
-                {                                                                                                                               /* get a connection */
-                        perror("accept");                                                                                       /* bad */
+                {                            /* get a connection */
+                        perror("accept");    /* bad */
                         exit(1);
                 }
                 switch( fork() )
-                {                                                                                                                               /* try to handle connection */
-                        case -1 :                                                                                                       /* bad news. scream and die */
+                {                       /* try to handle connection */
+                        case -1 :      /* bad news. scream and die */
                                 perror("fork");
                                 close(s);
                                 close(t);
                                 exit(1);
-                        case 0 :                                                                                                        /* we're the child, do something */
+                        case 0 :              /* we're the child, do something */
                                 close(s);
                                 do_something(t);
                                 close(t);
                                 exit(0);
-                        default :                                                                                                       /* we're the parent so look for */
-                                close(t);                                                                                               /* another connection */
+                        default :              /* we're the parent so look for */
+                                close(t);      /* another connection */
                                 continue;
                 }
         }
