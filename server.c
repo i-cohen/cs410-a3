@@ -146,7 +146,7 @@ void DirListing(FILE* FP, char* Path) {
 			}
 			else if ( S_ISREG(info.st_mode) )
 			{
-				fprintf(FP, "<td><a href=\"ftp://%s%s\">%s</a></td>", Host, Filename, dirent->d_name);
+				fprintf(FP, "<td><a href=\"http://%s%s\">%s</a></td>", Host, Filename, dirent->d_name);
 				fprintf(FP, "<td>%d</td>", info.st_size);
 			}
 			else if ( S_ISLNK(info.st_mode) )
@@ -213,18 +213,26 @@ void  do_something(int client) {
 
 				if (fileType == 1) {
 					printf("Is html file.\n");
+					write(client,"HTTP/1.0 200 OK\n",16 );
+                                        write(client,"Content-type: text/html\n", 25);
+                                        write(client,"\n",1);
+                                        sendFileOverSocket(client,Req);
 				}
 
 				else if (fileType == 2) {
 					printf("Is jpeg file.\n");
-					fprintf(ClientFP,"HTTP/1.0 200 OK\n");
-                                	fprintf(ClientFP,"Content-type: image/jpeg\n");
-                                	fprintf(ClientFP,"\n");
+					write(client,"HTTP/1.0 200 OK\n",16 );
+					write(client,"Content-type: image/jpeg\n", 25);
+					write(client,"\n",1);
 					sendFileOverSocket(client,Req);
 				}
 
-				else if (fileType == 3) {
+				else if (fileType == 3) {					
 					printf("Is gif file.\n");
+					write(client,"HTTP/1.0 200 OK\n",16 );
+                                        write(client,"Content-type: image/gif\n", 24);
+                                        write(client,"\n",1);
+                                        sendFileOverSocket(client,Req);
 				}
 
 				else if (fileType == 4) {
@@ -233,8 +241,11 @@ void  do_something(int client) {
 
 				else {
 					printf("Incorrect file.\n");
-					fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
-
+					write(client,"HTTP/1.0 501 Not Implemented\n",23);
+                                        write(client,"Content-type: text/plain\n", 25);
+                                        write(client,"\n",1);
+					write(client,"Viewing this file type has not been implemented",47);
+					
 				}
 			}
 			fclose(ClientFP);
@@ -285,15 +296,12 @@ int checkExtension(char *fileName) {
 	char extension1[40];
 	char extension2[40];
 	int type = NULL;
-	printf("extension1 is :\n");
 
 	strncpy(extension1, fileName + (strlen(fileName) - 4), 4);
 	strncpy(extension2, fileName + (strlen(fileName) - 5), 5);
 	extension1[4] ='\0';
 	extension2[5] ='\0';
 
-	printf("extension1 is :%s\n", extension1);
-	printf("extension2 is :%s\n", extension2);
 	if (strcmp(extension2, ".html") == 0) {
 		type = 1;
 	}
