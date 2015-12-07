@@ -43,9 +43,9 @@
 #include <netdb.h>
 #include <stdlib.h>
 
-#define PORTNUM 9999
+#define PORTNUM 	9999
 #define	MY_PORT		9999
-#define MAXHOSTNAME 1000
+#define MAXHOSTNAME 	1000
 
 void PERROR(char* msg);
 #define PERROR(msg)	{ perror(msg); abort(); }
@@ -346,8 +346,17 @@ int establish(unsigned short portnum)
 }
 
 
-main()
+main(int argc, char *argv[])
 {
+	if (argc != 2) {
+		printf("Port number not specified.\n");
+		exit(0);
+	}
+	PORTNUM = argv[1];
+	if (PORTNUM < 5000 || PORTNUM > 65536) {
+		printf("Port number out of range.\n");
+		exit(0);
+	}
         int s, t;
         if ((s = establish(PORTNUM)) < 0)
         {                                      /* plug in the phone */
