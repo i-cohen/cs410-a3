@@ -189,9 +189,20 @@ void  do_something(int client) {
 
 		else {
 			char Req[MAXPATH];
+			char *args;
+			int hasArgs=0;
 			sscanf(buffer, "GET %s HTTP", Req);
+			if (strpbrk(Req, "?") != 0) {
+				char *Req1;
+				printf("has args?\n");
+				hasArgs=1;
+				Req1 = strtok(Req, "?");
+				args = strtok(NULL, "?");
+				printf("args: \"%s\"\n", args);
+					
+			}
 			printf("Request: \"%s\"\n", Req);
-
+			
 			if (lstat(Req, &statbuf) < 0) {
 				fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
 				printf("Stat error.\n");
@@ -237,6 +248,20 @@ void  do_something(int client) {
 
 				else if (fileType == 4) {
 					printf("is cgi file.\n");
+					dup2(client,1);
+					write(client,"HTTP/1.0 200 OK\n",16 );
+        	                                //write(client,"Content-type: text/plain\n", 26);
+                	                        //write(client,"\n",1);
+					if(hasArgs==0){
+						printf("Executing with no args");
+						execlp(Req,Req,NULL);
+					}
+					else{
+						execlp(Req,Req,args,NULL);	
+					}
+					
+					
+					
 				}
 
 				else {
