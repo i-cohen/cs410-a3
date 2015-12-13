@@ -78,7 +78,8 @@ set xlabel \"Patterns\"
 set ylabel \"Number of Matches\"
 set yrange [0:($max + 5)]
 set title \"Histogram of Pattern Matches in $ARGV[0]\"
-set terminal x11
+set terminal jpeg
+set output "output.jpg"
 n=$countNum
 
 plot '-' with boxes fs solid 1
