@@ -5,6 +5,7 @@ use CGI qw(:standard);
 print "Content-type:text/html\r\n\r\n";
 print "<html>\n";
 print "<head>\n";
+print "<meta charset=\"UTF-8\">";
 print "<title>Table of GET args</title>\n";
 print "</head>\n";
 print "<body style=\"background-color: lightblue;\">\n";
