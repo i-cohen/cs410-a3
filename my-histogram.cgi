@@ -1,4 +1,4 @@
-#!usr/bin/perl -w
+#!/usr/bin/perl
 #http://perlmaven.com/count-words-in-text-using-perl
 #http://perlmaven.com/introduction-to-regexes-in-perl
 #http://www.perlmonks.org/?node_id=159085

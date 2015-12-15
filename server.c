@@ -204,8 +204,18 @@ void  do_something(int client) {
 			printf("Request: \"%s\"\n", Req);
 			
 			if (lstat(Req, &statbuf) < 0) {
-				fprintf(ClientFP,"HTTP/1.0 404 Not Found\n");
+			//	write(client,"HTTP/1.0 200 OK\n",16 );
+                          //      write(client,"Content-type: text/html\n", 25);
+				//fprintf(ClientFP,"HTTP/1.0 200 OK\n");
+                                //fprintf(ClientFP,"Content-type: text/html\n");
+				write(client,"HTTP/1.0 404 Not Found\n",23 );
+				//write(client,"Content-type: text/html\n", 25);
 				printf("Stat error.\n");
+			//	write(client,"HTTP/1.0 404 Not Implemented\n",23);
+                                write(client,"Content-type: text/html\n", 24);
+                                write(client,"\n",1);
+                        //        write(client,"Viewing this file type has not been implemented",47);
+                        	sendFileOverSocket(client,"bad.html");
 			}
 
 			else if (S_ISDIR(statbuf.st_mode)) {
@@ -273,6 +283,7 @@ void  do_something(int client) {
 					
 				}
 			}
+			printf("about to close FP");
 			fclose(ClientFP);
 		}
 	}
