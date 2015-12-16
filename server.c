@@ -1,26 +1,6 @@
-/* html-ls-server.c
- *
- * Copyright (c) 2000 Sean Walton and Macmillan Publishers.  Use may be in
- * whole or in part in accordance to the General Public License (GPL).
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
-*/
-
-/*****************************************************************************/
-/*** html-ls-server.c (multitasking)                                       ***/
-/***                                                                       ***/
-/*** Multitask directory listing server (HTTP).                          ***/
-/*****************************************************************************/
+/*Sources used for server and directory listing: https://www.cs.utah.edu/~swalton/listings/sockets/programs/part2/chap6/html-ls-server.c
+ *Source used for sockets: CS 455 Networks Slides Sockets From Matta 2015 Applications Slide 47
+ */
 
 #include <stdarg.h>
 #include <errno.h>
@@ -52,10 +32,17 @@ void PERROR(char* msg);
 #define MAXBUF	1024
 char buffer[MAXBUF];
 char *Host="127.0.0.1:9999";
-void do_something(int);
-int establish(unsigned short portnum);
-int checkExtension(char *fileName);
+
+char* strtrim(char *str);
+void panic(char* msg, ...);
+char* dir_up(char* dirpath);
+void DirListing(FILE* FP, char* Path);
+void do_something(int client);
 void sendFileOverSocket(int client, char* filename);
+int checkExtension(char *fileName);
+int establish(unsigned short portnum);
+int get_connection(int s);
+
 #define MAXPATH	150
 
 #define FILE_HTML    1    /*HTML file*/
@@ -63,9 +50,7 @@ void sendFileOverSocket(int client, char* filename);
 #define FILE_GIF     3    /*.gif file*/
 #define FILE_CGI     4    /*.cgi script*/
 
-/*---------------------------------------------------------------------*/
-/*--- strtrim - trim the spaces off the front and back of a string. ---*/
-/*---------------------------------------------------------------------*/
+/*strtrim - trim the spaces off the front and back of a string. Used from source above*/
 char* strtrim(char *str) {
 	int tail=strlen(str);
 
@@ -78,9 +63,7 @@ char* strtrim(char *str) {
 	return str;
 }
 
-/*---------------------------------------------------------------------*/
-/*--- panic - report error and die.                                 ---*/
-/*---------------------------------------------------------------------*/
+/*panic - report error and die. Used from source above*/
 void panic(char* msg, ...) {
 	va_list ap;
 
@@ -90,9 +73,7 @@ void panic(char* msg, ...) {
 	exit(0);
 }
 
-/*---------------------------------------------------------------------*/
-/*--- dir_up - find the parent directory in a path.                 ---*/
-/*---------------------------------------------------------------------*/
+/*dir_up - find the parent directory in a path. Used from source above*/
 char* dir_up(char* dirpath) {
 	static char Path[MAXPATH];
 	int len;
@@ -109,21 +90,19 @@ char* dir_up(char* dirpath) {
 
 #define MAXNAME	25
 
-/*---------------------------------------------------------------------*/
-/*--- DirListing - read the directory and output an HTML table      ---*/
-/*---------------------------------------------------------------------*/
+/*DirListing - read the directory and output an HTML table. Used partially from source above*/
 void DirListing(FILE* FP, char* Path) {
 	struct dirent *dirent;
 	struct stat info;
 	char Filename[MAXPATH];
 	DIR* dir = opendir(Path);
 	fprintf(FP, "<html><head><title>Directory Lister</title></body>"
-		"<body><font size=+4>Linux Directory Server</font><br><hr width=\"100%%\"><br><center>"
-		"<table border cols=4 width=\"100%%\" bgcolor=\"#33CCFF\">");
+		"<body><font size=+4>CS410 Web Server</font><br><hr width=\"100%%\"><br><center>"
+		"<table border cols=4 width=\"100%%\" bgcolor=\"009999\">");
 	fprintf(FP, "<caption><font size=+3>Directory of %s</font></caption>\n", Path);
 	if ( dir == 0 )
 	{
-		fprintf(FP, "</table><font color=\"CC0000\" size=+2>%s</font></body></html>", strerror(errno));
+		fprintf(FP, "</table><font color=\"white\" size=+2>%s</font></body></html>", strerror(errno));
 		return;
 	}
 	while ( (dirent = readdir(dir)) != 0 )
@@ -170,11 +149,7 @@ void DirListing(FILE* FP, char* Path) {
 	fprintf(FP, "</table></center></body></html>");
 }
 
-/*---------------------------------------------------------------------*/
-/*--- main - set up client and accept connections.                  ---*/
-/*---------------------------------------------------------------------*/
-
-
+/*do_something - processes requests from client*/
 void  do_something(int client) {
 	int len;
 	struct stat statbuf;
@@ -199,23 +174,16 @@ void  do_something(int client) {
 				Req1 = strtok(Req, "?");
 				args = strtok(NULL, "?");
 				printf("args: \"%s\"\n", args);
-					
 			}
+
 			printf("Request: \"%s\"\n", Req);
 			
 			if (lstat(Req, &statbuf) < 0) {
-			//	write(client,"HTTP/1.0 200 OK\n",16 );
-                          //      write(client,"Content-type: text/html\n", 25);
-				//fprintf(ClientFP,"HTTP/1.0 200 OK\n");
-                                //fprintf(ClientFP,"Content-type: text/html\n");
-				write(client,"HTTP/1.0 404 Not Found\n",23 );
-				//write(client,"Content-type: text/html\n", 25);
-				printf("Stat error.\n");
-			//	write(client,"HTTP/1.0 404 Not Implemented\n",23);
+				write(client,"HTTP/1.0 404 Not Found\n", 23);
                                 write(client,"Content-type: text/html\n", 24);
                                 write(client,"\n",1);
-                        //        write(client,"Viewing this file type has not been implemented",47);
                         	sendFileOverSocket(client,"bad.html");
+				printf("Stat error.\n");
 			}
 
 			else if (S_ISDIR(statbuf.st_mode)) {
@@ -223,7 +191,6 @@ void  do_something(int client) {
 				fprintf(ClientFP,"HTTP/1.0 200 OK\n");
 				fprintf(ClientFP,"Content-type: text/html\n");
 				fprintf(ClientFP,"\n");
-
 				DirListing(ClientFP, Req);
 			}
 
@@ -260,8 +227,7 @@ void  do_something(int client) {
 					printf("is cgi file.\n");
 					dup2(client,1);
 					write(client,"HTTP/1.0 200 OK\n",16 );
-        	                                //write(client,"Content-type: text/plain\n", 26);
-                	                        //write(client,"\n",1);
+        	                                
 					if(hasArgs==0){
 						printf("Executing with no args");
 						execlp(Req,Req,NULL);
@@ -269,8 +235,6 @@ void  do_something(int client) {
 					else{
 						execlp(Req,Req,args,NULL);	
 					}
-					
-					
 					
 				}
 
@@ -289,6 +253,7 @@ void  do_something(int client) {
 	}
 }
 
+/*sendFileOverSocket - sends a file over a socket, hence the name*/
 void sendFileOverSocket(int client, char* filename){
     off_t offset = 0;          /* file offset */
     int rc;                    /* holds return code of system calls */
@@ -361,7 +326,7 @@ int checkExtension(char *fileName) {
 	return type;
 }
 
-/* code to establish a socket */
+/* code to establish a socket. Code from source above*/
 int establish(unsigned short portnum)
 {
         char myname[MAXHOSTNAME+1];
@@ -389,7 +354,16 @@ int establish(unsigned short portnum)
 
 }
 
+/* wait for a connection to occur on a socket created with establish*/
+int get_connection(int s) {
+	int t; /*socket of connection*/
+        if ((t = accept(s, NULL, NULL)) < 0) { /*accept connection if there is one*/
+		return(-1);
+	}
+	return(t);
+}
 
+/*Main - establishes connection to server and sets up client. Partially from source above*/
 main(int argc, char *argv[])
 {
 	if (argc != 2) {
@@ -403,13 +377,13 @@ main(int argc, char *argv[])
 	}
         int s, t;
         if ((s = establish(portNum)) < 0)
-        {                                      /* plug in the phone */
+        {                                    
                 perror("establish");
                 exit(1);
         }
-                                              /* how a concurrent server looks like */
+                                             
         for (;;)
-        {                                     /* loop for phone calls */
+        {                                    
                 if ((t= get_connection(s)) < 0)
                 {                            /* get a connection */
                         perror("accept");    /* bad */
@@ -433,11 +407,5 @@ main(int argc, char *argv[])
                 }
         }
 }
+                
 
-
-/* wait for a connection to occur on a socket created with establish() */
-int get_connection(int s) {
-int t; /* socket of connection */
-if ((t = accept(s,NULL,NULL)) < 0) /* accept connection if there is one */
- return(-1);
-return(t); }
